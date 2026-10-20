@@ -10,12 +10,8 @@ app = FastAPI()
 os.environ["OPENAI_API_BASE"] = "https://freellmapi-tqja.onrender.com/v1"
 os.environ["OPENAI_API_KEY"] = "freellmapi-01262c0df92253e89d91de4cb9865eabbe1cce879a27e4a6"
 
-# Auto Fallback Model Routing Setup
-primary_llm = ChatOpenAI(model="gemini-2.5-flash", temperature=0.7)
-fallback_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
-
-# Automatic fallback if primary fails
-llm = primary_llm.with_fallbacks([fallback_llm])
+# Using 'auto' model designation for FreeLLMAPI dynamic selection
+llm = ChatOpenAI(model="auto", temperature=0.7)
 
 # Define Graph State across agents
 class MultiAgentState(TypedDict):
@@ -64,7 +60,7 @@ app_graph = workflow.compile()
 
 @app.get("/")
 def home():
-    return {"status": "Multi-Agent LangGraph System (Auto-Model Selection) is Running 24/7!"}
+    return {"status": "Multi-Agent LangGraph System with Auto Model is Running 24/7!"}
 
 @app.get("/run-graph")
 def run_graph(topic: str = "Multi Agent AI Frameworks"):

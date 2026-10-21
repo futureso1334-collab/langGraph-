@@ -6,14 +6,15 @@ from langgraph.graph import StateGraph, START, END
 
 app = FastAPI()
 
-# Groq Setup - Fetches API key securely from Render Environment Variables
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
-llm = ChatGroq(
-    model="llama-3.3-70b-versatile",
-    groq_api_key=GROQ_API_KEY,
-    temperature=0.7
-)
+def get_llm():
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise ValueError("GROQ_API_KEY environment variable is missing on Render.")
+    return ChatGroq(
+        model="llama-3.3-70b-versatile",
+        groq_api_key=api_key,
+        temperature=0.7
+    )
 
 class MultiAgentState(TypedDict):
     topic: str
@@ -22,16 +23,19 @@ class MultiAgentState(TypedDict):
     final_output: str
 
 def researcher_node(state: MultiAgentState):
+    llm = get_llm()
     prompt = f"You are an expert researcher. Gather key facts and structured insights on: {state['topic']}."
     response = llm.invoke(prompt)
     return {"research_notes": response.content}
 
 def critic_node(state: MultiAgentState):
+    llm = get_llm()
     prompt = f"Review these research notes for accuracy and gaps. Suggest improvements:\n\n{state['research_notes']}"
     response = llm.invoke(prompt)
     return {"critique": response.content}
 
 def writer_node(state: MultiAgentState):
+    llm = get_llm()
     prompt = (
         f"Using the research notes and critique below, write a polished, professional response:\n\n"
         f"Research:\n{state['research_notes']}\n\n"

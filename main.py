@@ -6,12 +6,12 @@ from langgraph.graph import StateGraph, START, END
 
 app = FastAPI()
 
-# 4 డిఫరెంట్ ఫ్రీ గ్రోక్ మోడల్స్ లిస్ట్ (ఒకటి ఫెయిల్ అయితే మరొకటి ఆటోమేటిక్‌గా పనిచేస్తుంది)
+# Currently active and standard Groq models
 GROQ_MODELS = [
+    "llama-3.1-8b-instant",
+    "llama-3.1-70b-versatile",
     "llama3-8b-8192",
-    "llama3-70b-8192",
-    "mixtral-8x7b-32768",
-    "gemma2-9b-it"
+    "llama3-70b-8192"
 ]
 
 def invoke_with_fallback(prompt: str):
@@ -71,7 +71,7 @@ app_graph = workflow.compile()
 
 @app.get("/")
 def home():
-    return {"status": "Multi-Model Groq Multi-Agent LangGraph System is Running 24/7!"}
+    return {"status": "Updated Groq Multi-Agent System is Running 24/7!"}
 
 @app.get("/run-graph")
 def run_graph(topic: str = "Multi Agent AI Frameworks"):

@@ -6,15 +6,30 @@ from langgraph.graph import StateGraph, START, END
 
 app = FastAPI()
 
-def get_llm():
+# 4 డిఫరెంట్ ఫ్రీ గ్రోక్ మోడల్స్ లిస్ట్ (ఒకటి ఫెయిల్ అయితే మరొకటి ఆటోమేటిక్‌గా పనిచేస్తుంది)
+GROQ_MODELS = [
+    "llama3-8b-8192",
+    "llama3-70b-8192",
+    "mixtral-8x7b-32768",
+    "gemma2-9b-it"
+]
+
+def invoke_with_fallback(prompt: str):
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         raise ValueError("GROQ_API_KEY environment variable is missing on Render.")
-    return ChatGroq(
-        model="llama-3.3-70b-versatile",
-        groq_api_key=api_key,
-        temperature=0.7
-    )
+    
+    last_error = None
+    for model_name in GROQ_MODELS:
+        try:
+            llm = ChatGroq(model=model_name, groq_api_key=api_key, temperature=0.7)
+            response = llm.invoke(prompt)
+            if response and response.content:
+                return response.content
+        except Exception as e:
+            last_error = str(e)
+            continue
+    raise Exception(f"All Groq models failed. Last error: {last_error}")
 
 class MultiAgentState(TypedDict):
     topic: str
@@ -23,26 +38,23 @@ class MultiAgentState(TypedDict):
     final_output: str
 
 def researcher_node(state: MultiAgentState):
-    llm = get_llm()
     prompt = f"You are an expert researcher. Gather key facts and structured insights on: {state['topic']}."
-    response = llm.invoke(prompt)
-    return {"research_notes": response.content}
+    content = invoke_with_fallback(prompt)
+    return {"research_notes": content}
 
 def critic_node(state: MultiAgentState):
-    llm = get_llm()
     prompt = f"Review these research notes for accuracy and gaps. Suggest improvements:\n\n{state['research_notes']}"
-    response = llm.invoke(prompt)
-    return {"critique": response.content}
+    content = invoke_with_fallback(prompt)
+    return {"critique": content}
 
 def writer_node(state: MultiAgentState):
-    llm = get_llm()
     prompt = (
         f"Using the research notes and critique below, write a polished, professional response:\n\n"
         f"Research:\n{state['research_notes']}\n\n"
         f"Critique:\n{state['critique']}"
     )
-    response = llm.invoke(prompt)
-    return {"final_output": response.content}
+    content = invoke_with_fallback(prompt)
+    return {"final_output": content}
 
 workflow = StateGraph(MultiAgentState)
 
@@ -59,7 +71,7 @@ app_graph = workflow.compile()
 
 @app.get("/")
 def home():
-    return {"status": "Groq-Powered Multi-Agent LangGraph System is Running 24/7!"}
+    return {"status": "Multi-Model Groq Multi-Agent LangGraph System is Running 24/7!"}
 
 @app.get("/run-graph")
 def run_graph(topic: str = "Multi Agent AI Frameworks"):

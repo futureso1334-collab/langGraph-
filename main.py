@@ -10,8 +10,26 @@ app = FastAPI()
 os.environ["OPENAI_API_BASE"] = "https://freellmapi-tqja.onrender.com/v1"
 os.environ["OPENAI_API_KEY"] = "freellmapi-01262c0df92253e89d91de4cb9865eabbe1cce879a27e4a6"
 
-# Using 'auto' model designation for FreeLLMAPI dynamic selection
-llm = ChatOpenAI(model="auto", temperature=0.7)
+# Known stable models on FreeLLMAPI proxy
+WORKING_MODELS = [
+    "gemini-1.5-flash",
+    "gpt-3.5-turbo",
+    "gpt-4o-mini",
+    "gemini-2.5-flash"
+]
+
+def invoke_llm_with_retry(prompt: str):
+    last_error = None
+    for model_name in WORKING_MODELS:
+        try:
+            llm = ChatOpenAI(model=model_name, temperature=0.7, timeout=30)
+            response = llm.invoke(prompt)
+            if response and response.content:
+                return response.content
+        except Exception as e:
+            last_error = str(e)
+            continue
+    raise Exception(f"All models failed. Last error: {last_error}")
 
 # Define Graph State across agents
 class MultiAgentState(TypedDict):
@@ -23,14 +41,14 @@ class MultiAgentState(TypedDict):
 # Node 1: Researcher Agent
 def researcher_node(state: MultiAgentState):
     prompt = f"You are an expert researcher. Gather key facts and structured insights on: {state['topic']}."
-    response = llm.invoke(prompt)
-    return {"research_notes": response.content}
+    content = invoke_llm_with_retry(prompt)
+    return {"research_notes": content}
 
 # Node 2: Critic / Fact-Checker Agent
 def critic_node(state: MultiAgentState):
     prompt = f"Review these research notes for accuracy and gaps. Suggest improvements:\n\n{state['research_notes']}"
-    response = llm.invoke(prompt)
-    return {"critique": response.content}
+    content = invoke_llm_with_retry(prompt)
+    return {"critique": content}
 
 # Node 3: Writer / Summarizer Agent
 def writer_node(state: MultiAgentState):
@@ -39,8 +57,8 @@ def writer_node(state: MultiAgentState):
         f"Research:\n{state['research_notes']}\n\n"
         f"Critique:\n{state['critique']}"
     )
-    response = llm.invoke(prompt)
-    return {"final_output": response.content}
+    content = invoke_llm_with_retry(prompt)
+    return {"final_output": content}
 
 # Build StateGraph Multi-Agent Workflow
 workflow = StateGraph(MultiAgentState)
@@ -60,7 +78,7 @@ app_graph = workflow.compile()
 
 @app.get("/")
 def home():
-    return {"status": "Multi-Agent LangGraph System with Auto Model is Running 24/7!"}
+    return {"status": "Multi-Agent LangGraph System (Smart Model Failover) is Running 24/7!"}
 
 @app.get("/run-graph")
 def run_graph(topic: str = "Multi Agent AI Frameworks"):

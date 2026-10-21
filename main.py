@@ -6,11 +6,10 @@ from langgraph.graph import StateGraph, START, END
 
 app = FastAPI()
 
-# Current active Groq models
+# కేవలం GPT-OSS మోడల్స్ మాత్రమే ఉంచడం జరిగింది
 GROQ_MODELS = [
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-    "mixtral-8x7b-32768"
+    "openai/gpt-oss-20b",
+    "openai/gpt-oss-120b"
 ]
 
 def invoke_with_fallback(prompt: str):
@@ -70,7 +69,7 @@ app_graph = workflow.compile()
 
 @app.get("/")
 def home():
-    return {"status": "Groq Multi-Agent System with Active Models is Running 24/7!"}
+    return {"status": "GPT-OSS Multi-Agent System is Running 24/7!"}
 
 @app.get("/run-graph")
 def run_graph(topic: str = "Multi Agent AI Frameworks"):

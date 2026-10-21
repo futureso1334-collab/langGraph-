@@ -1,33 +1,23 @@
 import os
 from typing import TypedDict
 from fastapi import FastAPI
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, START, END
 
 app = FastAPI()
 
-# కేవలం GPT-OSS మోడల్స్ మాత్రమే ఉంచడం జరిగింది
-GROQ_MODELS = [
-    "openai/gpt-oss-20b",
-    "openai/gpt-oss-120b"
-]
+# OpenRouter Configuration
+os.environ["OPENAI_API_BASE"] = "https://openrouter.ai/api/v1"
 
-def invoke_with_fallback(prompt: str):
-    api_key = os.getenv("GROQ_API_KEY")
+def get_llm():
+    api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
-        raise ValueError("GROQ_API_KEY environment variable is missing on Render.")
-    
-    last_error = None
-    for model_name in GROQ_MODELS:
-        try:
-            llm = ChatGroq(model=model_name, groq_api_key=api_key, temperature=0.7)
-            response = llm.invoke(prompt)
-            if response and response.content:
-                return response.content
-        except Exception as e:
-            last_error = str(e)
-            continue
-    raise Exception(f"All Groq models failed. Last error: {last_error}")
+        raise ValueError("OPENROUTER_API_KEY environment variable is missing on Render.")
+    return ChatOpenAI(
+        model="cohere/north-mini-code:free",
+        openai_api_key=api_key,
+        temperature=0.7
+    )
 
 class MultiAgentState(TypedDict):
     topic: str
@@ -36,23 +26,26 @@ class MultiAgentState(TypedDict):
     final_output: str
 
 def researcher_node(state: MultiAgentState):
+    llm = get_llm()
     prompt = f"You are an expert researcher. Gather key facts and structured insights on: {state['topic']}."
-    content = invoke_with_fallback(prompt)
-    return {"research_notes": content}
+    response = llm.invoke(prompt)
+    return {"research_notes": response.content}
 
 def critic_node(state: MultiAgentState):
+    llm = get_llm()
     prompt = f"Review these research notes for accuracy and gaps. Suggest improvements:\n\n{state['research_notes']}"
-    content = invoke_with_fallback(prompt)
-    return {"critique": content}
+    response = llm.invoke(prompt)
+    return {"critique": response.content}
 
 def writer_node(state: MultiAgentState):
+    llm = get_llm()
     prompt = (
         f"Using the research notes and critique below, write a polished, professional response:\n\n"
         f"Research:\n{state['research_notes']}\n\n"
         f"Critique:\n{state['critique']}"
     )
-    content = invoke_with_fallback(prompt)
-    return {"final_output": content}
+    response = llm.invoke(prompt)
+    return {"final_output": response.content}
 
 workflow = StateGraph(MultiAgentState)
 
@@ -69,7 +62,7 @@ app_graph = workflow.compile()
 
 @app.get("/")
 def home():
-    return {"status": "GPT-OSS Multi-Agent System is Running 24/7!"}
+    return {"status": "OpenRouter Cohere-Powered Multi-Agent System is Running 24/7!"}
 
 @app.get("/run-graph")
 def run_graph(topic: str = "Multi Agent AI Frameworks"):
